@@ -1,0 +1,288 @@
+from enum import Enum
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class ConfidenceLevel(str, Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class LogEvidence(BaseModel):
+    """Evidence from application logs"""
+
+    timestamp: str = Field(..., description="ISO 8601 timestamp of the log entry")
+    log_message: str = Field(..., description="The actual log message content")
+    log_level: Literal["ERROR", "WARN", "INFO", "DEBUG"] = Field(
+        ..., description="Log severity level"
+    )
+    component_uid: str = Field(..., description="ID of the component that generated this log")
+    project_uid: str = Field(..., description="ID of the project that generated this log")
+
+    significance: str | None = Field(
+        default=None, description="Why this log is significant to the RCA"
+    )
+
+
+class MetricCategoryStats(BaseModel):
+    """Statistical analysis for a metric category (e.g., cpuUsage, memory)"""
+
+    average: float | None = Field(default=None, description="Average value across the time window")
+    median: float | None = Field(default=None, description="Median value")
+    minimum: float | None = Field(default=None, description="Minimum value observed")
+    maximum: float | None = Field(default=None, description="Maximum value observed")
+    std_deviation: float | None = Field(default=None, description="Standard deviation")
+    outliers: list[float] = Field(
+        default_factory=list,
+        description="Values that are statistical outliers (significantly different from the norm)",
+    )
+    limit: float | None = Field(
+        default=None,
+        description="Configured limit/threshold for this metric (e.g., cpuLimits value, memoryLimits value)",
+    )
+    request: float | None = Field(
+        default=None,
+        description="Configured request value for this metric (e.g., cpuRequests value, memoryRequests value)",
+    )
+
+
+class MetricEvidence(BaseModel):
+    """Evidence from metrics data with statistical analysis per category"""
+
+    component_uid: str = Field(..., description="UID of the component")
+    description: str = Field(
+        ...,
+        description="Overall description of what was observed across all metric categories (e.g., 'CPU usage spiked to 95% at 08:15 UTC while memory remained stable', 'All metrics within normal ranges throughout incident')",
+    )
+
+    cpu_usage: MetricCategoryStats | None = Field(
+        default=None, description="Statistics for CPU usage metrics"
+    )
+    cpu_requests: MetricCategoryStats | None = Field(
+        default=None, description="Statistics for CPU requests (configured CPU requests)"
+    )
+    cpu_limits: MetricCategoryStats | None = Field(
+        default=None, description="Statistics for CPU limits (configured CPU limits)"
+    )
+    memory: MetricCategoryStats | None = Field(
+        default=None, description="Statistics for memory usage metrics"
+    )
+    memory_requests: MetricCategoryStats | None = Field(
+        default=None, description="Statistics for memory requests (configured memory requests)"
+    )
+    memory_limits: MetricCategoryStats | None = Field(
+        default=None, description="Statistics for memory limits (configured memory limits)"
+    )
+
+    notable_events: list[str] = Field(
+        default_factory=list,
+        description="List of notable events across all metric categories (e.g., 'CPU breached 80% threshold at 08:15 UTC', 'Memory spiked to 95% at 08:20 UTC', 'CPU usage exceeded requests at 08:25 UTC')",
+    )
+
+
+class SpanDetails(BaseModel):
+    """Details of a single trace span"""
+
+    span_id: str = Field(..., description="Unique span identifier")
+    name: str = Field(..., description="Name/operation of the span")
+    component_uid: str | None = Field(default=None, description="Component UID for this span")
+    project_uid: str | None = Field(default=None, description="Project UID for this span")
+    duration_nanoseconds: int = Field(..., description="Duration of this span in nanoseconds")
+    start_time: str = Field(..., description="ISO 8601 timestamp when span started")
+    end_time: str = Field(..., description="ISO 8601 timestamp when span ended")
+    parent_span_id: str | None = Field(default=None, description="Parent span ID if applicable")
+
+
+class TraceEvidence(BaseModel):
+    """Evidence from distributed traces"""
+
+    trace_id: str = Field(..., description="Unique trace identifier")
+    description: str = Field(
+        ...,
+        description="Description of what this trace shows",
+    )
+    total_duration_nanoseconds: int = Field(
+        ..., description="Total duration of the entire trace in nanoseconds"
+    )
+    significant_spans: list[SpanDetails] = Field(
+        default_factory=list,
+        description="Key spans that are important to understanding this trace (e.g., bottlenecks, errors)",
+    )
+    affected_components: list[str] = Field(
+        default_factory=list, description="Component IDs involved in this trace"
+    )
+
+
+class Evidence(BaseModel):
+    """Comprehensive evidence organized by telemetry type"""
+
+    logs: list[LogEvidence] = Field(
+        default_factory=list,
+        description="Significant logs from the investigation. Include representative examples of errors, warnings, or other notable log entries. If there are many similar logs, include a few examples and note the pattern in the significance field.",
+    )
+    metrics: list[MetricEvidence] = Field(
+        default_factory=list,
+        description="Metric observations with statistical analysis per category (CPU and memory). Include both anomalies and normal metrics that were checked.",
+    )
+    traces: list[TraceEvidence] = Field(
+        default_factory=list,
+        description="Significant traces showing latency issues, errors, or cascading failures.",
+    )
+    correlations: list[str] = Field(
+        default_factory=list,
+        description="Key correlations found between different telemetry sources (e.g., 'High CPU usage at 08:15 coincides with database timeout errors in logs and slow traces')",
+    )
+
+
+class TimelineEvent(BaseModel):
+    """A significant event that occurred in the system (not investigation steps)"""
+
+    timestamp: str = Field(..., description="ISO 8601 timestamp of when the event occurred")
+    event_description: str = Field(
+        ...,
+        description="Description of what happened in the system (e.g., 'analytics-service started returning 500 errors', '47 database connection timeouts occurred')",
+    )
+    source: Literal["logs", "metrics", "traces"] = Field(
+        ..., description="Which telemetry source revealed this event"
+    )
+    affected_components: list[str] | None = Field(
+        default_factory=list, description="Component IDs involved in this event"
+    )
+    aggregated_count: int | None = Field(
+        default=None,
+        description="If this event represents multiple similar occurrences, how many times did it occur?",
+    )
+    time_range_start: str | None = Field(
+        default=None,
+        description="If aggregated, ISO 8601 timestamp of first occurrence",
+    )
+    time_range_end: str | None = Field(
+        default=None,
+        description="If aggregated, ISO 8601 timestamp of last occurrence",
+    )
+
+
+class InvestigationStep(BaseModel):
+    """A significant step the agent took during investigation"""
+
+    action: str = Field(
+        ...,
+        description="What the agent investigated (e.g., 'Analyzed error logs from analytics-service', 'Checked CPU metrics for spike during incident window')",
+    )
+    rationale: str | None = Field(
+        default=None,
+        description="Why the agent took this step (e.g., 'Previous step showed high error rate from this component')",
+    )
+    outcome: str = Field(..., description="What the agent found or concluded from this step")
+    hypothesis: str | None = Field(
+        default=None, description="If this step was testing a hypothesis, what was it?"
+    )
+    hypothesis_confirmed: bool | None = Field(
+        default=None, description="If testing a hypothesis, was it confirmed or rejected?"
+    )
+
+
+class RootCause(BaseModel):
+    """An identified root cause"""
+
+    description: str = Field(
+        ...,
+        description="Detailed description of the root cause. Be specific about what failed and why.",
+    )
+    confidence: ConfidenceLevel = Field(
+        ..., description="AI confidence level in this root cause determination"
+    )
+    affected_components: list[str] | None = Field(
+        default_factory=list,
+        description="Component IDs affected by this root cause. List the origin component first if identifiable.",
+    )
+    evidence_summary: str = Field(
+        ...,
+        description="Brief summary of key evidence supporting this root cause. Reference specific patterns, metrics, or traces from the evidence section.",
+    )
+
+
+class ImmediateAction(BaseModel):
+    """An immediate action to resolve or mitigate the issue"""
+
+    action: str = Field(..., description="Description of the immediate action")
+    priority: Literal["critical", "high", "medium"] = Field(
+        ..., description="Priority level of this action"
+    )
+    estimated_impact: str | None = Field(
+        default=None, description="Expected impact of taking this action"
+    )
+    affected_components: list[str] = Field(
+        default_factory=list, description="Component IDs affected by this action"
+    )
+
+
+class FutureAction(BaseModel):
+    """An action to take in the future (short-term or long-term)"""
+
+    action: str = Field(..., description="Description of the action")
+    rationale: str | None = Field(default=None, description="Why this action is recommended")
+    estimated_effort: str | None = Field(
+        default=None, description="Estimated effort (e.g., '2-3 days', '1 sprint', '1 quarter')"
+    )
+    timeframe: Literal["short-term", "long-term"] = Field(
+        ..., description="'short-term' for days/weeks, 'long-term' for months/quarters"
+    )
+
+
+class Recommendations(BaseModel):
+    """Actionable recommendations to prevent recurrence"""
+
+    immediate: list[ImmediateAction] = Field(
+        default_factory=list,
+        description="Actions to take immediately to resolve or mitigate the issue",
+    )
+    future: list[FutureAction] = Field(
+        default_factory=list,
+        description="Actions to take in the future to prevent recurrence and improve reliability",
+    )
+    monitoring_improvements: list[str] = Field(
+        default_factory=list,
+        description="Suggestions for additional monitoring, alerting, or observability improvements",
+    )
+
+
+class RCAReport(BaseModel):
+    """Complete Root Cause Analysis Report for OpenChoreo incidents"""
+
+    summary: str = Field(
+        ...,
+        description="Executive summary: 2-4 sentences describing the issue, impact, and root cause. Make it suitable for stakeholders who need a quick understanding.",
+    )
+
+    root_causes: list[RootCause] = Field(
+        ...,
+        min_length=1,
+        description="Identified root causes. First item should be the primary root cause, subsequent items are contributing factors.",
+    )
+
+    evidence: Evidence = Field(
+        ...,
+        description="Concrete evidence supporting the root cause analysis, organized by telemetry type (logs, metrics, traces)",
+    )
+
+    investigation_path: list[InvestigationStep] = Field(
+        default_factory=list,
+        description="Sequential steps the agent took during investigation. Include only significant investigative actions (5-10 steps typically), not every minor action.",
+    )
+
+    positive_findings: list[str] = Field(
+        default_factory=list,
+        description="Areas where the system was functioning normally. This provides context and rules out potential causes. Examples: 'CPU and memory usage were within normal ranges for frontend component', 'No network connectivity issues detected', 'Database query performance was nominal'",
+    )
+
+    timeline: list[TimelineEvent] = Field(
+        default_factory=list,
+        description="Chronological sequence of significant system events discovered through analysis. Include only events that happened in the system (errors, anomalies, recoveries), not agent investigation steps. Aggregate similar events when there are many occurrences.",
+    )
+
+    recommendations: Recommendations = Field(
+        ..., description="Actionable recommendations to prevent recurrence"
+    )

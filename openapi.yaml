@@ -1,0 +1,152 @@
+openapi: 3.0.3
+info:
+  title: RCA Agent API
+  description: Root Cause Analysis Agent API for analyzing alerts and generating RCA reports
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+tags:
+  - name: general
+    description: General endpoints
+  - name: analysis
+    description: Root cause analysis operations
+  - name: ui
+    description: User interface endpoints
+
+paths:
+  /health:
+    get:
+      tags:
+        - general
+      summary: Health check
+      description: Returns the health status of the service
+      operationId: health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+
+  /analyze:
+    post:
+      tags:
+        - analysis
+      summary: Analyze alert and generate RCA report
+      description: Accepts an alert payload and performs root cause analysis, returning a detailed RCA report
+      operationId: analyze
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Analysis completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    $ref: '#/components/schemas/RCAReport'
+                  report_id:
+                    type: string
+                    description: Unique identifier for the generated report
+                    example: alert123_1703001234567
+        '500':
+          description: Analysis failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: "Analysis failed: Internal error"
+
+  /ui:
+    get:
+      tags:
+        - ui
+      summary: Dashboard UI
+      description: Returns the HTML dashboard interface
+      operationId: ui
+      responses:
+        '200':
+          description: HTML dashboard content
+          content:
+            text/html:
+              schema:
+                type: string
+        '404':
+          description: Dashboard template not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: Dashboard template not found
+
+components:
+  schemas:
+    AnalyzeRequest:
+      type: object
+      required:
+        - ruleName
+        - componentUid
+        - projectUid
+        - environmentUid
+        - alertValue
+        - timestamp
+        - alertId
+      properties:
+        ruleName:
+          type: string
+          description: Name of the alert rule that triggered
+          example: high_error_rate
+        componentUid:
+          type: string
+          description: Unique identifier of the component
+          example: comp_abc123
+        projectUid:
+          type: string
+          description: Unique identifier of the project
+          example: proj_xyz789
+        environmentUid:
+          type: string
+          description: Unique identifier of the environment
+          example: env_prod_001
+        alertValue:
+          type: integer
+          description: Numeric value of the alert
+          example: 85
+        timestamp:
+          type: string
+          description: Timestamp when the alert was triggered
+          example: "2024-01-01T12:00:00Z"
+        alertId:
+          type: string
+          description: Unique identifier for the alert
+          example: alert_123456
+        meta:
+          type: object
+          nullable: true
+          description: Additional metadata associated with the alert
+          additionalProperties: true
+
+    RCAReport:
+      type: object
+      description: Root cause analysis report with arbitrary JSON structure
+      additionalProperties: true
