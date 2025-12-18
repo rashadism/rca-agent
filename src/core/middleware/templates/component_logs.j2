@@ -1,0 +1,7 @@
+## Logs for component with component_uid: {{ component_id }}:
+environment_uid: {{ environment_id }}
+project_uid: {{ project_id }}
+
+{% for log in logs -%}
+{{ log.timestamp }} - {{ log.logLevel }} - {{ log.log }}
+{% endfor -%}

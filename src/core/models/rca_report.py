@@ -224,12 +224,6 @@ class FutureAction(BaseModel):
 
     action: str = Field(..., description="Description of the action")
     rationale: str | None = Field(default=None, description="Why this action is recommended")
-    estimated_effort: str | None = Field(
-        default=None, description="Estimated effort (e.g., '2-3 days', '1 sprint', '1 quarter')"
-    )
-    timeframe: Literal["short-term", "long-term"] = Field(
-        ..., description="'short-term' for days/weeks, 'long-term' for months/quarters"
-    )
 
 
 class Recommendations(BaseModel):
