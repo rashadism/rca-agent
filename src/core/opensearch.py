@@ -7,6 +7,7 @@ from opensearchpy import OpenSearch, RequestsHttpConnection
 from opensearchpy.exceptions import OpenSearchException
 
 from src.core.config import settings
+from src.core.constants import oc_labels
 from src.core.models.rca_report import RCAReport
 
 logger = logging.getLogger(__name__)
@@ -35,18 +36,18 @@ class OpenSearchClient:
 
         return client
 
-    def publish_rca_report(
+    def upsert_rca_report(
         self,
-        report: RCAReport,
         report_id: str,
-        alert_id: str | None = None,
-        status: str = "completed",
+        alert_id: str,
+        status: str = "pending",
+        report: RCAReport | None = None,
         timestamp: datetime | None = None,
         environment_uid: str | None = None,
         organization_uid: str | None = None,
         project_uid: str | None = None,
         component_uids: str | None = None,
-        version: int = 1,
+        _version: int = 1,
     ) -> dict[str, Any]:
         doc_timestamp = timestamp or datetime.now(UTC)
         index_name = f"{self.index_prefix}-{doc_timestamp.strftime('%Y.%m')}"
@@ -54,43 +55,29 @@ class OpenSearchClient:
         document = {
             "@timestamp": doc_timestamp.isoformat(),
             "reportId": report_id,
-            "alertId": alert_id or report.incident_id,
+            "alertId": alert_id,
             "status": status,
-            "version": version,
-            "summary": report.summary,
+            # "version": version, # Temporarily disable versioning
             "resource": {
-                "openchoreo.dev/environment-uid": environment_uid,
-                "openchoreo.dev/organization-uid": organization_uid,
-                "openchoreo.dev/project-uid": project_uid,
-                "openchoreo.dev/component-uids": component_uids,
+                oc_labels.ENVIRONMENT_UID: environment_uid,
+                oc_labels.ORGANIZATION_UID: organization_uid,
+                oc_labels.PROJECT_UID: project_uid,
+                oc_labels.COMPONENT_UIDS: component_uids,
             },
-            "report": report.model_dump(),
         }
+
+        if report is not None:
+            document["summary"] = report.summary
+            document["report"] = report.model_dump()
 
         try:
             response = self.client.index(index=index_name, body=document, id=report_id)
-            logger.info(f"Successfully published RCA report {report_id} to {index_name}")
-            return response
-        except OpenSearchException as e:
-            logger.error(f"Failed to publish RCA report {report_id}: {e}")
-            raise
-
-    def delete_all_documents(self, index_pattern: str | None = None) -> dict[str, Any]:
-        if index_pattern is None:
-            index_pattern = f"{self.index_prefix}-*"
-
-        try:
-            response = self.client.delete_by_query(
-                index=index_pattern,
-                body={"query": {"match_all": {}}},
-                conflicts="proceed",
-                refresh=True,
+            logger.info(
+                f"Successfully upserted RCA report {report_id} to {index_name} with status={status}"
             )
-            deleted_count = response.get("deleted", 0)
-            logger.info(f"Successfully deleted {deleted_count} documents from {index_pattern}")
             return response
         except OpenSearchException as e:
-            logger.error(f"Failed to delete documents from {index_pattern}: {e}")
+            logger.error(f"Failed to upsert RCA report {report_id}: {e}")
             raise
 
     def check_connection(self) -> bool:

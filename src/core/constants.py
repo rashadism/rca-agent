@@ -17,6 +17,17 @@ class ObservabilityTools:
 obs_tools = ObservabilityTools()
 oc_tools = OpenchoreoTools()
 
+
+class OpenchoreoLabels:
+    COMPONENT_UID = "openchoreo.dev/component-uid"
+    COMPONENT_UIDS = "openchoreo.dev/component-uids"
+    ENVIRONMENT_UID = "openchoreo.dev/environment-uid"
+    ORGANIZATION_UID = "openchoreo.dev/organization-uid"
+    PROJECT_UID = "openchoreo.dev/project-uid"
+
+
+oc_labels = OpenchoreoLabels()
+
 # Default configuration values
 DEFAULT_MCP_OBSERVABILITY_URL = "http://observer:8080/mcp"
 DEFAULT_MCP_OPENCHOREO_URL = (

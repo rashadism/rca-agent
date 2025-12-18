@@ -8,7 +8,7 @@ from langchain.messages import ToolMessage
 from langchain.tools.tool_node import ToolCallRequest
 from langgraph.types import Command
 
-from src.core.constants import obs_tools
+from src.core.constants import obs_tools, oc_labels
 from src.core.utils import create_jinja_env, render_template
 
 logger = logging.getLogger(__name__)
@@ -25,9 +25,9 @@ def _process_logs(content: str, tool_name: str) -> str:
         if not logs:
             return "No logs found"
 
-        if tool_name == "get_component_logs":
+        if tool_name == obs_tools.GET_COMPONENT_LOGS:
             return _format_component_logs(logs)
-        elif tool_name == "get_project_logs":
+        elif tool_name == obs_tools.GET_PROJECT_LOGS:
             return _format_project_logs(logs)
         else:
             return _format_component_logs(logs)
@@ -44,9 +44,9 @@ def _format_component_logs(logs: list) -> str:
     labels = first_log.get("labels", {})
 
     context = {
-        "component_id": labels.get("openchoreo.dev/component-uid", "N/A"),
-        "environment_id": labels.get("openchoreo.dev/environment-uid", "N/A"),
-        "project_id": labels.get("openchoreo.dev/project-uid", "N/A"),
+        "component_id": labels.get(oc_labels.COMPONENT_UID, "N/A"),
+        "environment_id": labels.get(oc_labels.ENVIRONMENT_UID, "N/A"),
+        "project_id": labels.get(oc_labels.PROJECT_UID, "N/A"),
         "namespace": first_log.get("namespace", "N/A"),
         "logs": logs,
     }
@@ -64,7 +64,7 @@ def _format_project_logs(logs: list) -> str:
     logs_by_component = {}
     for log in logs:
         log_labels = log.get("labels", {})
-        component_id = log_labels.get("openchoreo.dev/component-uid", "unknown")
+        component_id = log_labels.get(oc_labels.COMPONENT_UID, "unknown")
 
         if component_id not in logs_by_component:
             logs_by_component[component_id] = {
@@ -75,8 +75,8 @@ def _format_project_logs(logs: list) -> str:
         logs_by_component[component_id]["logs"].append(log)
 
     context = {
-        "project_id": labels.get("openchoreo.dev/project-uid", "N/A"),
-        "environment_id": labels.get("openchoreo.dev/environment-uid", "N/A"),
+        "project_id": labels.get(oc_labels.PROJECT_UID, "N/A"),
+        "environment_id": labels.get(oc_labels.ENVIRONMENT_UID, "N/A"),
         "components": list(logs_by_component.values()),
     }
 
