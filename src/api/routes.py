@@ -1,9 +1,7 @@
 import logging
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse
 from langchain_core.callbacks import UsageMetadataCallbackHandler
 from pydantic import Field
 
@@ -14,8 +12,6 @@ from src.core.utils import BaseModel, get_current_utc
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 
 
 class AnalyzeRequest(BaseModel):
@@ -115,14 +111,3 @@ async def analyze(request: AnalyzeRequest):
             )
 
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}") from e
-
-
-@router.get("/ui", response_class=HTMLResponse)
-async def ui():
-    try:
-        html_file = TEMPLATES_DIR / "dashboard.html"
-        html_content = html_file.read_text()
-        return HTMLResponse(content=html_content)
-    except FileNotFoundError as e:
-        logger.error("Dashboard template not found: %s", e)
-        raise HTTPException(status_code=404, detail="Dashboard template not found") from e

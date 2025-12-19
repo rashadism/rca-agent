@@ -10,7 +10,9 @@ class Settings(BaseSettings):
 
     # URLs configurable via environment
     mcp_observability_url: str = "http://observer:8080/mcp"
-    mcp_openchoreo_url: str = "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080/mcp"
+    mcp_openchoreo_url: str = (
+        "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080/mcp"
+    )
 
     # Middleware flags
     debug: bool = False
