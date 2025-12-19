@@ -1,11 +1,14 @@
-# Logs for project with project_uid: {{ project_id }}
-environment_uid: {{ environment_id }}
+# Logs for project with project_uid: {{ project_uid }}
+environment_uid: {{ environment_uid }}
 
 {% for component in components -%}
 
-## Logs for component with component_uid: {{ component.component_id }}:
+## Logs for component with component_uid: {{ component.component_uid }}
+
+Timestamp | Log Level | Message
+--- | --- | ---
 {% for log in component.logs -%}
-{{ log.timestamp }} - {{ log.logLevel }} - {{ log.log }}
+{{ log.timestamp }} | {% if log.logLevel != "UNDEFINED" %}{{ log.logLevel }}{% else %}INFO{% endif %} | {{ log.log }}
 {% endfor %}
 
 {% endfor -%}

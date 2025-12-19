@@ -22,6 +22,7 @@ venv/
 *.swo
 *~
 .ruff_cache/
+CLAUDE.md
 
 # OS
 .DS_Store

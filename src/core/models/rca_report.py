@@ -18,8 +18,8 @@ class LogEvidence(BaseModel):
     log_level: Literal["ERROR", "WARN", "INFO", "DEBUG"] = Field(
         ..., description="Log severity level"
     )
-    component_uid: str = Field(..., description="ID of the component that generated this log")
-    project_uid: str = Field(..., description="ID of the project that generated this log")
+    component_uid: str = Field(..., description="UID of the component that generated this log")
+    project_uid: str = Field(..., description="UID of the project that component belongs to")
 
     significance: str | None = Field(
         default=None, description="Why this log is significant to the RCA"
@@ -29,22 +29,58 @@ class LogEvidence(BaseModel):
 class MetricCategoryStats(BaseModel):
     """Statistical analysis for a metric category (e.g., cpuUsage, memory)"""
 
-    average: float | None = Field(default=None, description="Average value across the time window")
+    # Baseline statistics
+    mean: float | None = Field(
+        default=None, description="Mean (average) value across the time window"
+    )
     median: float | None = Field(default=None, description="Median value")
     minimum: float | None = Field(default=None, description="Minimum value observed")
     maximum: float | None = Field(default=None, description="Maximum value observed")
     std_deviation: float | None = Field(default=None, description="Standard deviation")
-    outliers: list[float] = Field(
-        default_factory=list,
-        description="Values that are statistical outliers (significantly different from the norm)",
-    )
-    limit: float | None = Field(
+    coefficient_of_variation: float | None = Field(
         default=None,
-        description="Configured limit/threshold for this metric (e.g., cpuLimits value, memoryLimits value)",
+        description="Coefficient of variation (std_dev / mean), indicates relative variability",
     )
-    request: float | None = Field(
+
+    # Percentiles
+    p90: float | None = Field(default=None, description="90th percentile value")
+    p95: float | None = Field(default=None, description="95th percentile value")
+
+    # Anomaly detection
+    spike_count: int | None = Field(
+        default=None, description="Number of anomalous spikes detected (Z-score > 3)"
+    )
+    max_spike_magnitude: float | None = Field(
+        default=None, description="Maximum spike magnitude in standard deviations from mean"
+    )
+    largest_drop: float | None = Field(
+        default=None, description="Largest sudden drop in value (most negative change)"
+    )
+
+    # Time range
+    start_time: str | None = Field(
+        default=None, description="ISO 8601 timestamp of first data point"
+    )
+    end_time: str | None = Field(default=None, description="ISO 8601 timestamp of last data point")
+
+
+class ResourcePressure(BaseModel):
+    """Resource pressure analysis comparing usage to configured requests and limits"""
+
+    avg_usage_to_request_ratio: float | None = Field(
         default=None,
-        description="Configured request value for this metric (e.g., cpuRequests value, memoryRequests value)",
+        description="Average ratio of usage to request (e.g., 0.5 means using 50% of requested resources)",
+    )
+    avg_usage_to_limit_ratio: float | None = Field(
+        default=None,
+        description="Average ratio of usage to limit (e.g., 0.8 means using 80% of limit)",
+    )
+    exceeded_requests: bool | None = Field(
+        default=None, description="Whether usage exceeded configured requests at any point"
+    )
+    exceeded_limits: bool | None = Field(
+        default=None,
+        description="Whether usage exceeded configured limits at any point (critical issue)",
     )
 
 
@@ -57,23 +93,40 @@ class MetricEvidence(BaseModel):
         description="Overall description of what was observed across all metric categories (e.g., 'CPU usage spiked to 95% at 08:15 UTC while memory remained stable', 'All metrics within normal ranges throughout incident')",
     )
 
+    # Usage metrics (varying over time)
     cpu_usage: MetricCategoryStats | None = Field(
-        default=None, description="Statistics for CPU usage metrics"
-    )
-    cpu_requests: MetricCategoryStats | None = Field(
-        default=None, description="Statistics for CPU requests (configured CPU requests)"
-    )
-    cpu_limits: MetricCategoryStats | None = Field(
-        default=None, description="Statistics for CPU limits (configured CPU limits)"
+        default=None, description="Statistical analysis of CPU usage over time"
     )
     memory: MetricCategoryStats | None = Field(
-        default=None, description="Statistics for memory usage metrics"
+        default=None, description="Statistical analysis of memory usage over time"
     )
-    memory_requests: MetricCategoryStats | None = Field(
-        default=None, description="Statistics for memory requests (configured memory requests)"
+
+    # Configured resource values (constants)
+    cpu_request: float | None = Field(
+        default=None, description="Configured CPU request value in cores (e.g., 0.05 for 50m)"
     )
-    memory_limits: MetricCategoryStats | None = Field(
-        default=None, description="Statistics for memory limits (configured memory limits)"
+    cpu_limit: float | None = Field(
+        default=None, description="Configured CPU limit value in cores (e.g., 0.2 for 200m)"
+    )
+    memory_request: float | None = Field(
+        default=None, description="Configured memory request value in bytes"
+    )
+    memory_limit: float | None = Field(
+        default=None, description="Configured memory limit value in bytes"
+    )
+
+    # Resource pressure analysis
+    cpu_pressure: ResourcePressure | None = Field(
+        default=None, description="CPU resource pressure analysis (usage vs requests/limits)"
+    )
+    memory_pressure: ResourcePressure | None = Field(
+        default=None, description="Memory resource pressure analysis (usage vs requests/limits)"
+    )
+
+    # Correlation analysis
+    cpu_memory_correlation: float | None = Field(
+        default=None,
+        description="Pearson correlation between CPU usage and memory usage (-1 to 1, where >0.7 is strong positive correlation)",
     )
 
     notable_events: list[str] = Field(
@@ -147,7 +200,7 @@ class TimelineEvent(BaseModel):
     source: Literal["logs", "metrics", "traces"] = Field(
         ..., description="Which telemetry source revealed this event"
     )
-    affected_components: list[str] | None = Field(
+    affected_components: list[str] = Field(
         default_factory=list, description="Component IDs involved in this event"
     )
     aggregated_count: int | None = Field(
@@ -194,7 +247,7 @@ class RootCause(BaseModel):
     confidence: ConfidenceLevel = Field(
         ..., description="AI confidence level in this root cause determination"
     )
-    affected_components: list[str] | None = Field(
+    affected_components: list[str] = Field(
         default_factory=list,
         description="Component IDs affected by this root cause. List the origin component first if identifiable.",
     )

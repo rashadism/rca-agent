@@ -23,15 +23,12 @@ async def create_rca_agent(model=None, tools=None, usage_callback=None):
 
     prompt = get_system_prompt(tools)
 
-    middleware = []
-    middleware.append(TimingMiddleware())
+    middleware = [TimingMiddleware(), OutputProcessorMiddleware(), TodoListMiddleware()]
+
     if settings.debug:
         middleware.append(LoggingMiddleware())
-    if settings.use_todo_list:
-        middleware.append(TodoListMiddleware())
     if settings.use_filesystem:
         middleware.append(FilesystemMiddleware())
-    middleware.append(OutputProcessorMiddleware())
 
     model = get_model(model)
 
@@ -42,7 +39,7 @@ async def create_rca_agent(model=None, tools=None, usage_callback=None):
         # response_format=ProviderStrategy(RCAReport),
         response_format=ToolStrategy(RCAReport),
         middleware=middleware,
-    ).with_config({"recursion_limit": 150, "callbacks": [usage_callback]})
+    ).with_config({"recursion_limit": 200, "callbacks": [usage_callback]})
 
     logger.info("Created RCA agent with %d tools: %s", len(tools), [tool.name for tool in tools])
 
