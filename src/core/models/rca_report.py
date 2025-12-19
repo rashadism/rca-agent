@@ -301,13 +301,13 @@ class RCAReport(BaseModel):
 
     summary: str = Field(
         ...,
-        description="Executive summary: 2-4 sentences describing the issue, impact, and root cause. Make it suitable for stakeholders who need a quick understanding.",
+        description="Executive summary: maximum 2 sentences describing the issue, impact, and root cause.",
     )
 
     root_causes: list[RootCause] = Field(
         ...,
         min_length=1,
-        description="Identified root causes. First item should be the primary root cause, subsequent items are contributing factors.",
+        description="Identified root causes in order of significance.",
     )
 
     evidence: Evidence = Field(

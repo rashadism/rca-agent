@@ -1,10 +1,5 @@
-from pathlib import Path
-
 from src.core.mcp import MCP_CONFIG
-from src.core.utils import create_jinja_env, render_template
-
-_template_dir = Path(__file__).parent / "templates"
-_env = create_jinja_env(_template_dir)
+from src.core.template_manager import render
 
 
 def get_system_prompt(tools: list) -> str:
@@ -26,4 +21,4 @@ def get_system_prompt(tools: list) -> str:
         ],
     }
 
-    return render_template(_env, "system_prompt.j2", context)
+    return render("prompts/system_prompt.j2", context)

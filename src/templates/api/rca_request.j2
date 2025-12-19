@@ -1,0 +1,14 @@
+RCA to be done for the following payload:
+
+rule_name={{ rule_name }}
+component_uid={{ component_uid }}
+project_uid={{ project_uid }}
+environment_uid={{ environment_uid }}
+alert_value={{ alert_value }}
+timestamp={{ timestamp }}
+alert_id={{ alert_id }}
+{% if meta -%}
+meta={{ meta }}
+{% endif -%}
+
+The alert was triggered on {{ timestamp }}, it might be a good idea to analyze telemetry maybe 2 hours up and down from this timestamp.

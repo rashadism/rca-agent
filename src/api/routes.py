@@ -7,6 +7,7 @@ from pydantic import Field
 
 from src.core.agent import create_rca_agent
 from src.core.opensearch import get_opensearch_client
+from src.core.template_manager import render
 from src.core.utils import BaseModel, get_current_utc
 
 logger = logging.getLogger(__name__)
@@ -51,16 +52,28 @@ async def analyze(request: AnalyzeRequest):
         usage_callback = UsageMetadataCallbackHandler()
         agent = await create_rca_agent(usage_callback=usage_callback)
 
-        content = str(request)
-
         # TODO: Preprocessing step to resolve id's etc.
+
+        content = render(
+            "api/rca_request.j2",
+            {
+                "rule_name": request.rule_name,
+                "component_uid": request.component_uid,
+                "project_uid": request.project_uid,
+                "environment_uid": request.environment_uid,
+                "alert_value": request.alert_value,
+                "timestamp": request.timestamp,
+                "alert_id": request.alert_id,
+                "meta": request.meta,
+            },
+        )
 
         result = await agent.ainvoke(
             {
                 "messages": [
                     {
                         "role": "user",
-                        "content": f"RCA to be done for the following payload: {content}\n\nThe alert was triggered on {request.timestamp}, it might be a good idea to analyze telemetry maybe 2 hours up and down from this timestamp.",
+                        "content": content,
                     }
                 ],
             }

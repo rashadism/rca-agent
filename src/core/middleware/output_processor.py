@@ -1,7 +1,6 @@
 import json
 import logging
 from collections.abc import Callable
-from pathlib import Path
 
 import numpy as np
 from langchain.agents.middleware import AgentMiddleware
@@ -10,12 +9,9 @@ from langchain.tools.tool_node import ToolCallRequest
 from langgraph.types import Command
 
 from src.core.constants import obs_tools, oc_labels
-from src.core.utils import create_jinja_env, render_template
+from src.core.template_manager import render
 
 logger = logging.getLogger(__name__)
-
-_template_dir = Path(__file__).parent / "templates"
-_env = create_jinja_env(_template_dir)
 
 
 def _process_component_logs(content: str) -> str:
@@ -36,7 +32,7 @@ def _process_component_logs(content: str) -> str:
             "logs": logs,
         }
 
-        return render_template(_env, "component_logs.j2", context)
+        return render("middleware/component_logs.j2", context)
     except Exception as e:
         logger.error(f"Error processing component logs: {e}")
         return content
@@ -71,7 +67,7 @@ def _process_project_logs(content: str) -> str:
             "components": list(logs_by_component.values()),
         }
 
-        return render_template(_env, "project_logs.j2", context)
+        return render("middleware/project_logs.j2", context)
     except Exception as e:
         logger.error(f"Error processing project logs: {e}")
         return content
@@ -247,7 +243,7 @@ def _process_metrics(content: str) -> str:
             "correlations": correlations,
         }
 
-        return render_template(_env, "metrics.j2", context)
+        return render("middleware/metrics.j2", context)
 
     except Exception as e:
         logger.error(f"Error processing metrics: {e}", exc_info=True)
@@ -334,7 +330,7 @@ def _process_traces(content: str) -> str:
 
         context = {"traces": processed_traces, "tookMs": took_ms}
 
-        return render_template(_env, "traces.j2", context)
+        return render("middleware/traces.j2", context)
 
     except Exception as e:
         logger.error(f"Error processing traces: {e}")
